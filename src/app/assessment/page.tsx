@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AIChat from '@/components/AIChat';
 
 const lifeAreas = [
   { 
@@ -38,6 +39,7 @@ export default function AssessmentPage() {
     play: 50,
     love: 50,
   });
+  const [showChat, setShowChat] = useState(false);
 
   const handleScoreChange = (area: string, value: number) => {
     setScores(prev => ({
@@ -48,6 +50,11 @@ export default function AssessmentPage() {
 
   const handleSubmit = async () => {
     // TODO: Save scores to database
+    setShowChat(true);
+  };
+
+  const handleChatClose = () => {
+    setShowChat(false);
     router.push('/dashboard');
   };
 
@@ -96,10 +103,14 @@ export default function AssessmentPage() {
             onClick={handleSubmit}
             className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
-            Continue to Dashboard
+            Get AI Insights
           </button>
         </div>
       </div>
+
+      {showChat && (
+        <AIChat scores={scores} onClose={handleChatClose} />
+      )}
     </div>
   );
 }
