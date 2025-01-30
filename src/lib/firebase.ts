@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -193,6 +193,115 @@ export async function deleteAssessmentData(userId: string) {
     console.log('Assessment and insights data deleted successfully');
   } catch (error) {
     console.error('Error deleting assessment data:', error);
+    throw error;
+  }
+}
+
+export interface LifeBalanceScores extends Record<string, number> {
+  health: number;
+  work: number;
+  play: number;
+  love: number;
+}
+
+export async function saveScores(userId: string, scores: LifeBalanceScores) {
+  console.log('Attempting to save scores:', {
+    userId,
+    path: `users/${userId}/data/lifeBalance`,
+    scores,
+    currentUser: auth.currentUser?.uid
+  });
+
+  // Verify auth state
+  if (!auth.currentUser) {
+    throw new Error('No authenticated user found');
+  }
+
+  // Verify user ID matches current user
+  if (auth.currentUser.uid !== userId) {
+    throw new Error('User ID mismatch');
+  }
+
+  try {
+    // Create a batch to ensure atomic updates
+    const batch = writeBatch(db);
+
+    // Update the user document
+    const userRef = doc(db, 'users', userId);
+    batch.set(userRef, {
+      updatedAt: serverTimestamp(),
+      email: auth.currentUser.email,
+    }, { merge: true });
+
+    // Update the scores document - using the full path
+    const scoresRef = doc(db, 'users', userId, 'data', 'lifeBalance');
+    batch.set(scoresRef, {
+      ...scores,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Commit the batch
+    await batch.commit();
+    console.log('Successfully saved scores to Firebase');
+  } catch (error: any) {
+    console.error('Error saving scores to Firebase:', {
+      error,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      userId,
+      currentUser: auth.currentUser?.uid,
+      scores
+    });
+    throw error;
+  }
+}
+
+export async function getScores(userId: string): Promise<LifeBalanceScores | null> {
+  console.log('Attempting to get scores:', {
+    userId,
+    path: `users/${userId}/data/lifeBalance`,
+    currentUser: auth.currentUser?.uid
+  });
+
+  // Verify auth state
+  if (!auth.currentUser) {
+    throw new Error('No authenticated user found');
+  }
+
+  // Verify user ID matches current user
+  if (auth.currentUser.uid !== userId) {
+    throw new Error('User ID mismatch');
+  }
+
+  try {
+    // Using the full path for consistency
+    const scoresRef = doc(db, 'users', userId, 'data', 'lifeBalance');
+    const scoresSnap = await getDoc(scoresRef);
+    
+    console.log('Got scores snapshot:', {
+      exists: scoresSnap.exists(),
+      data: scoresSnap.data()
+    });
+    
+    if (scoresSnap.exists()) {
+      const data = scoresSnap.data();
+      return {
+        health: data.health ?? 50,
+        work: data.work ?? 50,
+        play: data.play ?? 50,
+        love: data.love ?? 50,
+      };
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error('Error getting scores from Firebase:', {
+      error,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      userId,
+      currentUser: auth.currentUser?.uid
+    });
     throw error;
   }
 }
