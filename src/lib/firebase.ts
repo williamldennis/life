@@ -1,5 +1,7 @@
+'use client';
+
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -11,18 +13,25 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Log config (without exposing sensitive values)
+console.log('Firebase config check:', {
+  hasApiKey: !!firebaseConfig.apiKey,
+  hasAuthDomain: !!firebaseConfig.authDomain,
+  hasProjectId: !!firebaseConfig.projectId,
+  hasStorageBucket: !!firebaseConfig.storageBucket,
+  hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+  hasAppId: !!firebaseConfig.appId,
+});
+
 // Initialize Firebase
 let app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 let auth = getAuth(app);
 
-// Set persistence and log auth state changes
+// Set persistence to LOCAL
 if (typeof window !== 'undefined') {
   setPersistence(auth, browserLocalPersistence)
     .then(() => {
       console.log('Firebase persistence set to LOCAL');
-      onAuthStateChanged(auth, (user) => {
-        console.log('Firebase auth state changed:', user?.email);
-      });
     })
     .catch((error) => {
       console.error('Error setting auth persistence:', error);

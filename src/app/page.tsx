@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export default function HomePage() {
   const router = useRouter();
@@ -14,11 +16,53 @@ export default function HomePage() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // For now, just redirect to assessment if signing up, or dashboard if signing in
-    if (isSignUp) {
-      router.push('/assessment');
-    } else {
-      router.push('/dashboard');
+    setError('');
+
+    console.log('Attempting authentication:', {
+      isSignUp,
+      hasEmail: !!email,
+      emailLength: email.length,
+      hasPassword: !!password,
+      passwordLength: password.length
+    });
+
+    try {
+      if (isSignUp) {
+        // Create new user
+        console.log('Creating new user...');
+        await createUserWithEmailAndPassword(auth, email, password);
+        console.log('User created successfully');
+        router.push('/assessment');
+      } else {
+        // Sign in existing user
+        console.log('Signing in user...');
+        await signInWithEmailAndPassword(auth, email, password);
+        console.log('User signed in successfully');
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      const errorDetails = {
+        code: err?.code,
+        message: err?.message,
+        fullError: JSON.stringify(err)
+      };
+      console.error('Authentication error:', errorDetails);
+      
+      // More user-friendly error messages
+      let errorMessage = 'An error occurred during authentication';
+      if (err?.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password';
+      } else if (err?.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address';
+      } else if (err?.code === 'auth/weak-password') {
+        errorMessage = 'Password should be at least 6 characters';
+      } else if (err?.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
