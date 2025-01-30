@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getChatResponse, getInitialPrompt } from '@/lib/openai';
+import InitialAssessment from './InitialAssessment';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -22,23 +23,36 @@ export default function AIChat({ scores, onClose }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showAssessment, setShowAssessment] = useState(true);
+  const [assessment, setAssessment] = useState<Record<string, string> | undefined>();
 
   useEffect(() => {
-    // Initialize chat with AI's first message based on scores
-    const initializeChat = async () => {
-      setIsLoading(true);
-      try {
-        const initialMessage = getInitialPrompt(scores);
-        setMessages([{ role: 'assistant', content: initialMessage }]);
-      } catch (error) {
-        console.error('Error initializing chat:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Only initialize chat after assessment is complete or skipped
+    if (!showAssessment) {
+      const initializeChat = async () => {
+        setIsLoading(true);
+        try {
+          const initialMessage = getInitialPrompt(scores);
+          setMessages([{ role: 'assistant', content: initialMessage }]);
+        } catch (error) {
+          console.error('Error initializing chat:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
-    initializeChat();
-  }, [scores]);
+      initializeChat();
+    }
+  }, [scores, showAssessment]);
+
+  const handleAssessmentComplete = (responses: Record<string, string>) => {
+    setAssessment(responses);
+    setShowAssessment(false);
+  };
+
+  const handleAssessmentSkip = () => {
+    setShowAssessment(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +66,8 @@ export default function AIChat({ scores, onClose }: AIChatProps) {
     try {
       const aiResponse = await getChatResponse(
         [...messages, { role: 'user', content: userMessage }],
-        scores
+        scores,
+        assessment
       );
       
       setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
@@ -69,6 +84,15 @@ export default function AIChat({ scores, onClose }: AIChatProps) {
       setIsLoading(false);
     }
   };
+
+  if (showAssessment) {
+    return (
+      <InitialAssessment
+        onComplete={handleAssessmentComplete}
+        onSkip={handleAssessmentSkip}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">

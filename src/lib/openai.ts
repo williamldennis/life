@@ -21,6 +21,46 @@ interface AIScores {
   love: number;
 }
 
+interface InitialAssessment {
+  [key: string]: string;
+}
+
+function generateContextFromAssessment(assessment: InitialAssessment): string {
+  const healthResponses = Object.entries(assessment)
+    .filter(([key]) => key.startsWith('health'))
+    .map(([_, value]) => value)
+    .join('\n');
+
+  const workResponses = Object.entries(assessment)
+    .filter(([key]) => key.startsWith('work'))
+    .map(([_, value]) => value)
+    .join('\n');
+
+  const playResponses = Object.entries(assessment)
+    .filter(([key]) => key.startsWith('play'))
+    .map(([_, value]) => value)
+    .join('\n');
+
+  const loveResponses = Object.entries(assessment)
+    .filter(([key]) => key.startsWith('love'))
+    .map(([_, value]) => value)
+    .join('\n');
+
+  return `User Background Information:
+
+Health Context:
+${healthResponses}
+
+Work Context:
+${workResponses}
+
+Play Context:
+${playResponses}
+
+Love Context:
+${loveResponses}`;
+}
+
 const SYSTEM_PROMPT = `You are an empathetic and insightful life coach. Your role is to help users improve their life satisfaction scores across four key areas: health, work, play, and love.
 
 When interacting with users:
@@ -30,15 +70,32 @@ When interacting with users:
 4. Focus on small, incremental improvements
 5. Encourage reflection and self-awareness
 6. Maintain a positive and supportive tone
+7. Reference their background information when relevant to show understanding
+8. Make connections between different life areas when appropriate
 
 Keep responses concise and focused on the most relevant area of improvement.`;
 
-export async function getChatResponse(messages: Message[], scores: AIScores): Promise<string> {
+export async function getChatResponse(
+  messages: Message[], 
+  scores: AIScores,
+  assessment?: InitialAssessment
+): Promise<string> {
   try {
+    const systemMessages: Message[] = [
+      { role: 'system', content: SYSTEM_PROMPT }
+    ];
+
+    if (assessment) {
+      systemMessages.push({
+        role: 'system',
+        content: generateContextFromAssessment(assessment)
+      });
+    }
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        ...systemMessages,
         ...messages
       ],
       temperature: 0.7,
