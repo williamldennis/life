@@ -20,6 +20,16 @@ service cloud.firestore {
       allow read, write: if isUserOwner(userId);
     }
 
+    // Rules for users collection and subcollections
+    match /users/{userId} {
+      allow read, write: if isUserOwner(userId);
+      
+      // Allow access to all subcollections under the user's document
+      match /{allSubcollections=**} {
+        allow read, write: if isUserOwner(userId);
+      }
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
